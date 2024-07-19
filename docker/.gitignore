@@ -1,3 +1,4 @@
 .env
+init-db.sql
 init-db-with-insert.sql
 .DS_Store
