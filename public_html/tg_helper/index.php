@@ -335,20 +335,21 @@ function speachGPT($tgBot, $GPT, $users, $text) {
     User::save_reply($users, $reply);
 }
 
-function search($tgBot, $uid, $keyboard, $users, $notes, $search_text = '') {
+function search($tgBot, $tid, $keyboard, $users, $notes, $search_text = '') {
     if ($search_text == '' && $tgBot->MSG_INFO['command']['args'] == '') {
         $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Укажите что ищем: ');
         User::save_reply($users, $reply);
-        $users->setStatus($uid, 'search');
+        $users->setStatus($tid, 'search');
         return;
     }
     if ($search_text == '') {
         $search_text = $tgBot->MSG_INFO['command']['args'];
     }
-    $finded = $notes->search($uid, $search_text);
+    $finded = $notes->search($tid, $search_text);
     if (count($finded) == 0) {
         $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Не удалось ничего найти');
         User::save_reply($users, $reply);
+        $users->setStatus($tid, 'main_menu');
         return;
     }
     foreach ($finded as $key => $value) {

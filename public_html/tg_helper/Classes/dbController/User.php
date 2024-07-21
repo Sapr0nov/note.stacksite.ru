@@ -27,8 +27,7 @@ class User
         $response = "";
         $queries = [
             "CREATE TABLE IF NOT EXISTS " . $this->TABLE . " (
-                id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                tid bigint NOT NULL UNIQUE,
+                id bigint NOT NULL PRIMARY KEY,
                 user_name varchar(255) NULL DEFAULT '',
                 first_name varchar(255) NULL DEFAULT '',
                 last_name varchar(255) NULL DEFAULT '',
@@ -63,16 +62,16 @@ class User
         return $response;
     }
 
-    public function add($tid, $user_name = '', $first_name = '', $last_name = '', $status = 0) {
-        if ($user_id = $this->checkUser($tid)) {
+    public function add($uid, $user_name = '', $first_name = '', $last_name = '', $status = 0) {
+        if ($user_id = $this->checkUser($uid)) {
             return $user_id;
         }
 
         $query = "INSERT INTO `" . $this->TABLE 
-        . "` (`tid`, `first_name`, `last_name`, `user_name`)" 
+        . "` (`id`, `first_name`, `last_name`, `user_name`)" 
         . "VALUES(?, ?, ?, ?)";
         $stmt = $this->MYSQLI->prepare($query);
-        $stmt->bind_param('isss', $tid, $first_name, $last_name, $user_name);
+        $stmt->bind_param('isss', $uid, $first_name, $last_name, $user_name);
 
         try {
             $stmt->execute();
@@ -84,10 +83,10 @@ class User
         }
     }
 
-    public function checkUser($tid) {
-        $query = "SELECT `id` FROM `" . $this->TABLE . "` WHERE `tid` = ?";
+    public function checkUser($uid) {
+        $query = "SELECT `id` FROM `" . $this->TABLE . "` WHERE `id` = ?";
         $stmt = $this->MYSQLI->prepare($query);
-        $stmt->bind_param('i', $tid);
+        $stmt->bind_param('i', $uid);
 
         try {
             $stmt->execute();
@@ -111,8 +110,10 @@ class User
 
         try {
             $stmt->execute();
+            $result = $stmt->get_result();
+            $status = $result->fetch_object();
             $stmt->close();
-            return $stmt->get_result()->fetch_object();
+            return $status;
         } catch (\Exception $e) {
             $stmt->close();
             return null;
@@ -157,8 +158,10 @@ class User
 
         try {
             $stmt->execute();
+            $result = $stmt->get_result();
+            $statusObject = $result->fetch_object();
             $stmt->close();
-            return $stmt->get_result()->fetch_object();
+            return $statusObject;
         } catch (\Exception $e) {
             $stmt->close();
             return null;
@@ -172,8 +175,6 @@ class User
         . "VALUES(?, ?, ?, ?)";
         $stmt = $this->MYSQLI->prepare($query);
         $stmt->bind_param('iiis', $message_id, $user_id, $chat_id, $text);
-        $tgBot->msg_to_tg(getenv('ADMIN_ID'), 'DEBUG: ' . $user_id);
-
         try {
             $stmt->execute();
             $stmt->close();
@@ -233,8 +234,10 @@ class User
 
         try {
             $stmt->execute();
+            $result = $stmt->get_result();
+            $message = $result->fetch_object();
             $stmt->close();
-            return $stmt->get_result()->fetch_object();
+            return $message;
         } catch (\Exception $e) {
             $stmt->close();
             return null;
@@ -276,7 +279,7 @@ class User
     }
 
     public function all_usersId() {
-        $query = "SELECT `tid` FROM `" . $this->TABLE . "` WHERE 1 = 1";
+        $query = "SELECT `id` FROM `" . $this->TABLE . "` WHERE 1 = 1";
         $stmt = $this->MYSQLI->prepare($query);
 
         try {
@@ -290,10 +293,10 @@ class User
         }
     }
 
-    public function count_user_msgs($tid) {
+    public function count_user_msgs($uid) {
         $query = "SELECT COUNT(`id`) as messages FROM `" . $this->TABLE_MSGS . "` WHERE `user_id` = ?";
         $stmt = $this->MYSQLI->prepare($query);
-        $stmt->bind_param('i', $tid);
+        $stmt->bind_param('i', $uid);
 
         try {
             $stmt->execute();
@@ -319,30 +322,13 @@ class User
         $chat_id = $msg_info['chat_id'];
         $message_id = $msg_info['message_id'];
         $text = mysqli_real_escape_string($users->MYSQLI, $msg_info['text']);
-
-        $isMsg = $users->msg_find($chat_id, $message_id);
-
         $msg_type = $msg_info['msg_type'];
+        $uid = ($msg_type == 'bot_message') ? 0 : $uid = $msg_info['user_id'];
 
-        $uid = 1; // bot uid
-        if (!$msg_type == 'bot_message') {
-            $query = "SELECT id FROM " . $this->TABLE . " WHERE tid = ?";
-            $stmt = $this->$MYSQLI->prepare($query);
-            $stmt->bind_param('i', $msg_info['user_id']);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            if ($result->num_rows > 0) {
-                $row = $result->fetch_assoc();
-                $uid = $row['id'];
-            }
-            $result->free();
-            $stmt->close();
-        }
-
-        if ($isMsg) {
-            $users->msg_upd($chat_id, $message_id, $text);
+        if (is_null($users->msg_find($chat_id, $message_id))) {
+            $users->msg_save($chat_id, $uid, $message_id, $text);
         } else {
-            $users->msg_save($chat_id, 2, $message_id, $text);
+            $users->msg_upd($chat_id, $message_id, $text);
         }
 
         return $msg_info['message_id'];

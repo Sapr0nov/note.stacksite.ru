@@ -10,8 +10,7 @@ START TRANSACTION;
 SET time_zone = "+03:00";
 
 CREATE TABLE IF NOT EXISTS `users` (
-    `id` BIGINT(20) AUTO_INCREMENT PRIMARY KEY,
-    `tid` BIGINT(20) NOT NULL UNIQUE,
+    `id` BIGINT(20) PRIMARY KEY,
     `user_name` VARCHAR(255) DEFAULT '',
     `first_name` VARCHAR(255) DEFAULT '',
     `last_name` VARCHAR(255) DEFAULT '',
@@ -79,9 +78,9 @@ INSERT INTO `user_statuses` (`id`, `status`) VALUES
 (34, 'add_notice_time')
 ON DUPLICATE KEY UPDATE `status` = VALUES(`status`);
 
-INSERT INTO `users` (`id`, `tid`, `user_name`, `first_name`, `last_name`, `created_at`, `status`) VALUES
-(1, 0, 'bot', '', '', '2012-12-12 12:12:12', 0)
-ON DUPLICATE KEY UPDATE `tid` = VALUES(`tid`);
+INSERT INTO `users` (`id`, `user_name`, `first_name`, `last_name`, `created_at`, `status`) VALUES
+(0, 'bot', '', '', '2012-12-12 12:12:12', 0)
+ON DUPLICATE KEY UPDATE `user_name` = VALUES(`user_name`);
 
 
 
