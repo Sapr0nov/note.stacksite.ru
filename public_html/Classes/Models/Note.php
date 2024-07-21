@@ -49,16 +49,16 @@ class Note {
     }
 
     public function getAll() {
-        $tid = getenv('ADMIN_ID');
+        $uid = getenv('ADMIN_ID');
         $sql = <<<SQL
         SELECT notes.id, notes.user_id, notes.title, notes.content, notes.tags, notes.created_at 
         FROM notes 
         JOIN users ON notes.user_id = users.id 
-        WHERE users.tid = ?;
+        WHERE users.id = ?;
         SQL;
 
         $stmt = $this->conn->prepare($sql);
-        $stmt->bind_param('s', $tid);
+        $stmt->bind_param('s', $uid);
         $stmt->execute();
         $result = $stmt->get_result();
 
