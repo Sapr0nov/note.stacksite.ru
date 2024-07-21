@@ -21,12 +21,13 @@ RUN usermod -d /var/lib/mysql mysql
 
 # Копирование SQL файла для инициализации базы данных
 COPY init-db.sql /docker-entrypoint-initdb.d/
+COPY backup.sql /docker-entrypoint-initdb.d/
 COPY .env .env
 
 # Инициализация базы данных
 RUN service mysql start \
-&& mysql --default-character-set=utf8mb4 < /docker-entrypoint-initdb.d/init-db.sql
-
+    && mysql --default-character-set=utf8mb4 < /docker-entrypoint-initdb.d/init-db.sql \
+    && mysql --default-character-set=utf8mb4 < /docker-entrypoint-initdb.d/backup.sql
 
 ADD run.sh /run.sh
 RUN chmod +x /run.sh

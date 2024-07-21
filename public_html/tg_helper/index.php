@@ -20,6 +20,7 @@ date_default_timezone_set('Europe/Moscow');
 
 $tgBot = new TgBotClass(getenv('BOT_TOKEN'));
 $db = new DbClass(getenv('DB_SERVER'), getenv('DB_USER'), getenv('DB_PASSWORD'), getenv('DB_NAME'));
+
 $calendar = new CalendarClass();
 $users = new User($db->MYSQLI);
 $notes = new Note($db->MYSQLI);
@@ -53,6 +54,7 @@ $status = $users->getStatus($uid);
 
 handleCallbacks($tgBot, $users, $notes, $keyboard);
 
+// Если новое сообщение сохраняем - старое - выходим из скрипта (нужно если скрипт отрабатывает больше минуты)
 if (!$users->msg_find($tgBot->MSG_INFO['chat_id'], $tgBot->MSG_INFO['message_id'])) {
     $users->save_reply($users, $dataInput);
 } else {

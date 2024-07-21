@@ -20,6 +20,7 @@ class User
         $stmt = $this->MYSQLI->prepare($query);
         $stmt->bind_param('i', $sessionTime);
         $stmt->execute();
+        $stmt->close();
     }
 
     public function init() {
@@ -75,8 +76,10 @@ class User
 
         try {
             $stmt->execute();
+            $stmt->close();
             return $this->MYSQLI->insert_id;
         } catch (\Exception $e) {
+            $stmt->close();
             return null;
         }
     }
@@ -90,8 +93,10 @@ class User
             $stmt->execute();
             $result = $stmt->get_result();
             $obj = $result->fetch_object();
+            $stmt->close();
             return $obj ? $obj->id : null;
         } catch (\Exception $e) {
+            $stmt->close();
             return null;
         }
     }
@@ -106,8 +111,10 @@ class User
 
         try {
             $stmt->execute();
+            $stmt->close();
             return $stmt->get_result()->fetch_object();
         } catch (\Exception $e) {
+            $stmt->close();
             return null;
         }
     }
@@ -125,8 +132,10 @@ class User
 
         try {
             $stmt->execute();
+            $stmt->close();
             return $statusObject;
         } catch (\Exception $e) {
+            $stmt->close();
             return null;
         }
     }
@@ -148,23 +157,30 @@ class User
 
         try {
             $stmt->execute();
+            $stmt->close();
             return $stmt->get_result()->fetch_object();
         } catch (\Exception $e) {
+            $stmt->close();
             return null;
         }
     }
 
     private function msg_save($chat_id, $user_id, $message_id, $text) {
-        $query = "INSERT INTO `" . $this->TABLE_MSGS 
+        $tgBot = new TgBotClass(getenv('BOT_TOKEN'));
+        $query = "INSERT INTO `" . $this->TABLE_MSGS
         . "` (`msg_id`, `user_id`, `chat_id`, `text`)" 
         . "VALUES(?, ?, ?, ?)";
         $stmt = $this->MYSQLI->prepare($query);
         $stmt->bind_param('iiis', $message_id, $user_id, $chat_id, $text);
+        $tgBot->msg_to_tg(getenv('ADMIN_ID'), 'DEBUG: ' . $user_id);
 
         try {
             $stmt->execute();
+            $stmt->close();
             return $this->MYSQLI->insert_id;
         } catch (\Exception $e) {
+            $stmt->close();
+            $tgBot->msg_to_tg($chat_id, 'error'. json_encode($e->getMessage()));
             return null;
         }
     }
@@ -176,8 +192,10 @@ class User
 
         try {
             $stmt->execute();
+            $stmt->close();
             return true;
         } catch (\Exception $e) {
+            $stmt->close();
             return false;
         }
     }
@@ -199,8 +217,10 @@ class User
                 ];
                 $history[] = $message;
             }
+            $stmt->close();
             return $history;
         } catch (\Exception $e) {
+            $stmt->close();
             return null;
         }
     }
@@ -213,35 +233,44 @@ class User
 
         try {
             $stmt->execute();
+            $stmt->close();
             return $stmt->get_result()->fetch_object();
         } catch (\Exception $e) {
+            $stmt->close();
             return null;
         }
     }
 
-    public function msgs_clear($tgBot, $uid) {
+    public function msgs_clear($tgBot, $chat_id) {
+
         $query = "SELECT `msg_id` FROM `" . $this->TABLE_MSGS . "` WHERE `chat_id` = ?";
         $stmt = $this->MYSQLI->prepare($query);
-        $stmt->bind_param('i', $uid);
+        $stmt->bind_param('i', $chat_id);
 
         try {
             $stmt->execute();
             $result = $stmt->get_result();
             $rows = array_reverse($result->fetch_all(MYSQLI_ASSOC));
             foreach ($rows as $row) {
-                $tgBot->delete_msg_tg($uid, $row['msg_id']);
+                $tgBot->delete_msg_tg($chat_id, $row['msg_id']);
             }
-            $reply = $tgBot->msg_to_tg($uid, "Жду приказаний \xF0\x9F\x98\x8A", true);
+            $reply = $tgBot->msg_to_tg(
+                chat_id: $chat_id,
+                text: "Жду приказаний \xF0\x9F\x98\x8A",
+                silent: true
+            );
 
             $query = "DELETE FROM `" . $this->TABLE_MSGS . "` WHERE `chat_id` = ?";
             $stmt = $this->MYSQLI->prepare($query);
-            $stmt->bind_param('i', $uid);
+            $stmt->bind_param('i', $chat_id);
             $stmt->execute();
 
             self::save_reply($this, $reply);
-
+            $stmt->close();
             return true;
         } catch (\Exception $e) {
+            $stmt->close();
+            $tgBot->msg_to_tg($chat_id, 'error'. json_encode($e->getMessage()));
             return false;
         }
     }
@@ -252,8 +281,11 @@ class User
 
         try {
             $stmt->execute();
-            return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $result = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+            return $result;
         } catch (\Exception $e) {
+            $stmt->close();
             return false;
         }
     }
@@ -265,32 +297,52 @@ class User
 
         try {
             $stmt->execute();
-            return $stmt->get_result()->fetch_object()->messages;
+            $result = $stmt->get_result()->fetch_object()->messages;
+            $stmt->close();
+            return $result;
         } catch (\Exception $e) {
+            $stmt->close();
             return false;
         }
     }
 
     public static function save_reply($users, $reply) {
-        $replyTgBot = new TgBotClass('');
+        $replyTgBot = new TgBotClass(getenv('BOT_TOKEN'));
         $replyTgBot->get_data($reply);
 
         $msg_info = $replyTgBot->MSG_INFO;
+
         if (!isset($msg_info['chat_id']) || !isset($msg_info['message_id'])) {
             return;
         }
+
         $chat_id = $msg_info['chat_id'];
         $message_id = $msg_info['message_id'];
         $text = mysqli_real_escape_string($users->MYSQLI, $msg_info['text']);
 
         $isMsg = $users->msg_find($chat_id, $message_id);
+
         $msg_type = $msg_info['msg_type'];
-        $user_id = ($msg_type == 'bot_message') ? $msg_info['user_id'] : 0;
+
+        $uid = 1; // bot uid
+        if (!$msg_type == 'bot_message') {
+            $query = "SELECT id FROM " . $this->TABLE . " WHERE tid = ?";
+            $stmt = $this->$MYSQLI->prepare($query);
+            $stmt->bind_param('i', $msg_info['user_id']);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows > 0) {
+                $row = $result->fetch_assoc();
+                $uid = $row['id'];
+            }
+            $result->free();
+            $stmt->close();
+        }
 
         if ($isMsg) {
             $users->msg_upd($chat_id, $message_id, $text);
         } else {
-            $users->msg_save($chat_id, $user_id, $message_id, $text);
+            $users->msg_save($chat_id, 2, $message_id, $text);
         }
 
         return $msg_info['message_id'];
