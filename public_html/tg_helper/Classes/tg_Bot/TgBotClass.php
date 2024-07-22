@@ -30,7 +30,6 @@ class TgBotClass
 
     public function get_data($dataInput) {
         $this->DATA = json_decode($dataInput, true);
-        $this->MSG_INFO = $this->DATA['message'];
         if (isset($this->DATA['update_id'])) {
             $this->MSG_INFO['update_id'] = $this->DATA['update_id'];
         }
